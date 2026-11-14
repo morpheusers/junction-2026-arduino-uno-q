@@ -1,0 +1,31 @@
+{
+  "guilds": [
+    {
+      "id": "mediterranean_sun",
+      "name": "Sunny Mediterranean Trio",
+      "min_sun_hours": 5.5,
+      "min_temp_c": 16.0,
+      "plants": ["Dwarf Tomato (A)", "Genovese Basil (B)", "French Marigold (C)"],
+      "why_it_works": "Basil repels flies, Marigold stops root pests, Tomato shades the soil.",
+      "stencil_guide": "Hole A: 1 Tomato | Hole B: 2 Basil | Hole C: 2 Marigold"
+    },
+    {
+      "id": "continental_half_shade",
+      "name": "Half-Shade Balcony Guild",
+      "min_sun_hours": 2.5,
+      "min_temp_c": 10.0,
+      "plants": ["Oakleaf Lettuce (A)", "Chives (B)", "Wild Strawberry (C)"],
+      "why_it_works": "Strawberries act as living mulch to lock in moisture; Chives deter aphids.",
+      "stencil_guide": "Hole A: 2 Lettuce | Hole B: Clump Chives | Hole C: 1 Strawberry"
+    },
+    {
+      "id": "cool_nordic_shade",
+      "name": "Cool Shade Forest Trio",
+      "min_sun_hours": 0.0,
+      "min_temp_c": 5.0,
+      "plants": ["Woodruff / Mint (A)", "Curly Parsley (B)", "Pansy (C)"],
+      "why_it_works": "Thrives in indirect light and cool drafts with almost zero watering.",
+      "stencil_guide": "Hole A: 1 Mint | Hole B: 3 Parsley | Hole C: 2 Pansies"
+    }
+  ]
+}

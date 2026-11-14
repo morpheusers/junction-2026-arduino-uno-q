@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Downloaded models / generated artifacts
+lighthouse_companion/linux_app/model-small.onnx
+
+# Serial / device logs
+*.log
+
+# Editors and IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
