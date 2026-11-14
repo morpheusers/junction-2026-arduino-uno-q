@@ -53,7 +53,9 @@ class BalconySpatialEngine:
         tag_list = ids.flatten().tolist() if ids is not None else []
         pot_indices = [i for i, tid in enumerate(tag_list) if tid != ANCHOR_TAG_ID]
 
-        # BRANCH A: EXISTING POTS DETECTED VIA WOODEN STAKES (Method 2: Pinhole Math)
+        # =====================================================================
+        # CASE 1: POTS WITH ARUCO STAKES (Exact Pinhole Math)
+        # =====================================================================
         if len(pot_indices) > 0:
             spots = []
             for i in pot_indices:
@@ -81,7 +83,7 @@ class BalconySpatialEngine:
                 })
             return "EXISTING_POTS", spots
 
-        # BRANCH B: EMPTY BALCONY (Method 1: MiDaS Depth + Adaptive 1D K-Means)
+        # Compute MiDaS depth map once (used by both Un-Tagged Pots and Empty Balcony)
         if self.has_midas:
             blob = cv2.dnn.blobFromImage(frame, 1/255.0, (256, 256), (0.485, 0.456, 0.406), swapRB=True)
             self.midas_net.setInput(blob)
@@ -89,6 +91,37 @@ class BalconySpatialEngine:
         else:
             depth_raw = np.tile(np.linspace(0.1, 1.0, h, dtype=np.float32).reshape(h, 1), (1, w))
 
+        # =====================================================================
+        # CASE 2: POTS WITHOUT ARUCO TAGS (Detected via YOLO + MiDaS Depth)
+        # =====================================================================
+        if yolo_pot_boxes and len(yolo_pot_boxes) > 0:
+            spots = []
+            max_inv_d = float(np.percentile(depth_raw, 95)) + 1e-5
+            for idx, (x1, y1, x2, y2) in enumerate(yolo_pot_boxes):
+                x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+                roi_depth = float(np.median(depth_raw[y1:y2, x1:x2]))
+                # Estimate distance (80cm near to 300cm far) from relative MiDaS depth
+                est_dist_cm = round(80.0 + (1.0 - min(roi_depth / max_inv_d, 1.0)) * 220.0, 1)
+                # Back-calculate real pot width in cm using pinhole focal length
+                box_px_w = float(x2 - x1)
+                est_diam_cm = round((box_px_w * est_dist_cm) / FOCAL_LENGTH_PX, 1)
+                # Virtual 4cm ruler height in pixels for Phase 2 plant height tracking
+                virtual_4cm_px = (TAG_REAL_WIDTH_CM * FOCAL_LENGTH_PX) / est_dist_cm
+
+                spots.append({
+                    "id": f"Pot #{idx + 1}",
+                    "tag_id": idx + 1,
+                    "tag_px_h": virtual_4cm_px,
+                    "distance_cm": est_dist_cm,
+                    "diameter_cm": est_diam_cm,
+                    "bbox": [x1, y1, x2, y2],
+                    "mask": None
+                })
+            return "EXISTING_POTS", spots
+
+        # =====================================================================
+        # CASE 3: COMPLETELY EMPTY BALCONY (MiDaS Depth + Adaptive 1D K-Means)
+        # =====================================================================
         cutoff = np.percentile(depth_raw, 15)
         valid_mask = depth_raw > cutoff
         valid_depths = depth_raw[valid_mask].reshape(-1, 1).astype(np.float32)
@@ -100,20 +133,11 @@ class BalconySpatialEngine:
         full_labels = np.full((h, w), -1, dtype=int)
         full_labels[valid_mask] = labels.flatten()
 
-        scale_k = None
-        if ANCHOR_TAG_ID in tag_list:
-            idx = tag_list.index(ANCHOR_TAG_ID)
-            ax, ay, _, _, anchor_dist_cm = self._measure_tag(corners[idx][0])
-            inv_d = float(depth_raw[ay, ax])
-            if inv_d > 1e-3:
-                scale_k = anchor_dist_cm * inv_d
-
         zone_titles = ["Zone A (Near Foreground)", "Zone B (Mid Balcony)", "Zone C (Far Railing)"]
         spots = []
         for rank, cid in enumerate(sorted_ids):
             mask = (full_labels == cid)
-            center_inv_d = float(centers[cid][0])
-            est_dist = round(scale_k / center_inv_d, 1) if scale_k else round((rank + 1) * 90.0, 1)
+            est_dist = round((rank + 1) * 90.0, 1)
 
             contours, _ = cv2.findContours((mask.astype(np.uint8)) * 255, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             if contours:
